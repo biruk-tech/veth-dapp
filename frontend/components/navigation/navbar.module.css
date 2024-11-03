@@ -1,0 +1,29 @@
+/* frontend/components/Navbar.module.css */
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 2rem;
+    background-color: #282c34; /* Dark background */
+    color: white; /* Text color */
+}
+
+.logo {
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+.links {
+    display: flex;
+    gap: 1.5rem; /* Space between links */
+}
+
+.links a {
+    color: white;
+    text-decoration: none;
+    transition: color 0.3s;
+}
+
+.links a:hover {
+    color: #61dafb; /* Light blue on hover */
+}

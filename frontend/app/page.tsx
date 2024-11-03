@@ -1,9 +1,46 @@
 'use client'
 
+import { useState } from 'react'
 import { useWeb3 } from '../context/Web3Context'
+import { ethers } from 'ethers'
+import UserRegistry from '../../backend/artifacts/contracts/User.sol/UserRegistry.json'
 
 export default function Home() {
-	const { connect, disconnect, account, isConnected, chainId } = useWeb3()
+	const { account, isConnected, chainId } = useWeb3()
+	const [username, setUsername] = useState('')
+	const [isUsernameSet, setIsUsernameSet] = useState(false)
+
+	const handleAuth = async () => {
+		if (!account) return;
+
+		try {
+			const provider = new ethers.BrowserProvider(window.ethereum)
+			const signer = await provider.getSigner()
+
+			// Sign a message to verify ownership
+			const message = `Sign this message to verify your username: ${username}`;
+			const signature = await signer.signMessage(message);
+
+			const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS
+			if (!CONTRACT_ADDRESS) {
+				throw new Error('Contract address is not defined')
+			}
+			const contract = new ethers.Contract(
+				CONTRACT_ADDRESS,
+				UserRegistry.abi,
+				signer
+			)
+
+			// Call the smart contract to set the username
+			const tx = await contract.registerUser(username, signature)
+			await tx.wait()
+			alert('Username set successfully!')
+			setIsUsernameSet(true)
+		} catch (error) {
+			console.error('Error:', error)
+			alert('Operation failed: ' + (error as any).message)
+		}
+	}
 
 	return (
 		<main className='min-h-screen p-8'>
@@ -42,25 +79,30 @@ export default function Home() {
 										: chainId === 1337n
 										? 'Local Network'
 										: 'Unknown Network'
-									// Alternative approach that works with v6
-									// --> in tsconfig.json file "target": instead of "ES2020" use "ES2017"
-									// chainId === BigInt(1) ? 'Ethereum Mainnet' :
-									// chainId === BigInt(5) ? 'Goerli Testnet' :
-									// chainId === BigInt(11155111) ? 'Sepolia Testnet' :
-									// chainId === BigInt(1337) ? 'Local Network' :
-									// 'Unknown Network'
 								}
 							</p>
 						</div>
 					)}
 
-					{/* Connect/Disconnect Button */}
-					<button
-						onClick={isConnected ? disconnect : connect}
-						className='bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition-colors'
-					>
-						{isConnected ? 'Disconnect Wallet' : 'Connect Wallet'}
-					</button>
+					{/* Username Input */}
+					{isConnected && !isUsernameSet && (
+						<div className='p-4 bg-gray-100 rounded-lg'>
+							<h2>Set Your Username</h2>
+							<input
+								type='text'
+								value={username}
+								onChange={e => setUsername(e.target.value)}
+								placeholder='Enter username'
+								className='border p-2 rounded w-full'
+							/>
+							<button
+								onClick={handleAuth}
+								className='bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition-colors mt-2'
+							>
+								Set Username
+							</button>
+						</div>
+					)}
 				</div>
 			</div>
 		</main>
