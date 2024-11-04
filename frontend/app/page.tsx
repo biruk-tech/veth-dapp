@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useWeb3 } from '../context/Web3Context'
 import { ethers } from 'ethers'
 import UserRegistry from '../../backend/artifacts/contracts/User.sol/UserRegistry.json'
@@ -10,18 +10,54 @@ export default function Home() {
 	const [username, setUsername] = useState('')
 	const [isUsernameSet, setIsUsernameSet] = useState(false)
 
+	useEffect(() => {
+		const fetchUsername = async () => {
+			// Only proceed if the wallet is connected
+			if (!account) {
+				const localUsername = localStorage.getItem('username')
+				if (localUsername) {
+					setUsername(localUsername)
+					setIsUsernameSet(true)
+				}
+				return; // Exit early if no account is connected
+			}
+
+			const provider = new ethers.BrowserProvider(window.ethereum)
+			const signer = await provider.getSigner()
+			const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS
+			if (!CONTRACT_ADDRESS) {
+				throw new Error('Contract address is not defined')
+			}
+			const contract = new ethers.Contract(
+				CONTRACT_ADDRESS,
+				UserRegistry.abi,
+					signer
+			)
+
+			// Fetch the username from the smart contract
+			const storedUsername = await contract.getUsername(account)
+			if (storedUsername) {
+				setUsername(storedUsername)
+				setIsUsernameSet(true)
+				localStorage.setItem('username', storedUsername) // Save to local storage
+			}
+		}
+
+		fetchUsername()
+	}, [account])
+
 	const handleAuth = async () => {
-		if (!account) return;
+		if (!account) return
 
 		try {
 			const provider = new ethers.BrowserProvider(window.ethereum)
 			const signer = await provider.getSigner()
 
 			// Sign a message to verify ownership
-			const message = `Sign this message to verify your username: ${username}`;
-			const signature = await signer.signMessage(message);
+			const message = `Sign this message to verify your username: ${username}`
+			const signature = await signer.signMessage(message)
 
-			const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS
+			const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS
 			if (!CONTRACT_ADDRESS) {
 				throw new Error('Contract address is not defined')
 			}
@@ -69,39 +105,43 @@ export default function Home() {
 							<p>Chain ID: {chainId.toString()}</p>
 							<p>
 								Network:{' '}
-								{
-									chainId === 1n
-										? 'Ethereum Mainnet'
-										: chainId === 5n
-										? 'Goerli Testnet'
-										: chainId === 11155111n
-										? 'Sepolia Testnet'
-										: chainId === 1337n
-										? 'Local Network'
-										: 'Unknown Network'
-								}
+								{chainId === 1n
+									? 'Ethereum Mainnet'
+									: chainId === 5n
+									? 'Goerli Testnet'
+									: chainId === 11155111n
+									? 'Sepolia Testnet'
+									: chainId === 1337n
+									? 'Local Network'
+									: 'Unknown Network'}
 							</p>
 						</div>
 					)}
 
-					{/* Username Input */}
-					{isConnected && !isUsernameSet && (
+					{/* Display the username if set */}
+					{isUsernameSet ? (
 						<div className='p-4 bg-gray-100 rounded-lg'>
-							<h2>Set Your Username</h2>
-							<input
-								type='text'
-								value={username}
-								onChange={e => setUsername(e.target.value)}
-								placeholder='Enter username'
-								className='border p-2 rounded w-full'
-							/>
-							<button
-								onClick={handleAuth}
-								className='bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition-colors mt-2'
-							>
-								Set Username
-							</button>
+							<p>Your Username: {username}</p>
 						</div>
+					) : (
+						isConnected && ( // Only show this if connected
+							<div className='p-4 bg-gray-100 rounded-lg'>
+								<h2>Set Your Username</h2>
+								<input
+									type='text'
+									value={username}
+									onChange={e => setUsername(e.target.value)}
+									placeholder='Enter username'
+									className='border p-2 rounded w-full'
+								/>
+								<button
+									onClick={handleAuth}
+									className='bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition-colors mt-2'
+								>
+									Set Username
+								</button>
+							</div>
+						)
 					)}
 				</div>
 			</div>
